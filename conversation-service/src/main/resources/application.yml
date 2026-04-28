@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: conversation-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/finsight?currentSchema=conversations
+    username: adewole
+    password: adewole
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: conversations
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+
+  flyway:
+    enabled: true
+    schemas: conversations
+    default-schema: conversations
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+server:
+  port: 8083
+
+finsight:
+  jwt:
+    secret: finsight_jwt_secret_key_must_be_at_least_32_bytes_long
+  groq:
+    api-key: your_groq_api_key_here
+    base-url: https://api.groq.com/openai/v1
+    model: llama-3.3-70b-versatile
+
+logging:
+  level:
+    com.finsight: DEBUG

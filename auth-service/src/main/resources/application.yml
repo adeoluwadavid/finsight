@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: auth-service
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/finsight?currentSchema=auth
+    username: adewole
+    password: adewole
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: auth
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+
+  flyway:
+    enabled: true
+    schemas: auth
+    default-schema: auth
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: 8081
+
+finsight:
+  jwt:
+    secret: finsight_jwt_secret_key_must_be_at_least_32_bytes_long
+    access-token-expiry-minutes: 15
+    refresh-token-expiry-days: 7
+
+logging:
+  level:
+    com.finsight: DEBUG
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

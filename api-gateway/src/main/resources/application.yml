@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        - id: document-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/documents/**
+          filters:
+            - StripPrefix=1
+
+        - id: conversation-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/conversations/**
+          filters:
+            - StripPrefix=1
+
+server:
+  port: 8080
+
+finsight:
+  jwt:
+    secret: finsight_jwt_secret_key_must_be_at_least_32_bytes_long
+
+logging:
+  level:
+    com.finsight: DEBUG
+    org.springframework.cloud.gateway: DEBUG
