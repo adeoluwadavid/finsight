@@ -1,10 +1,8 @@
 package com.finsight.document.controller;
 
-import com.finsight.document.dto.ApiResponse;
-import com.finsight.document.dto.DocumentStatusResponse;
-import com.finsight.document.dto.DocumentUploadResponse;
-import com.finsight.document.dto.ExtractedInvoiceResponse;
+import com.finsight.document.dto.*;
 import com.finsight.document.service.DocumentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -59,5 +57,16 @@ public class DocumentController {
     @GetMapping("/health")
     public ResponseEntity<ApiResponse<String>> health() {
         return ResponseEntity.ok(ApiResponse.success("Document service is running", "OK"));
+    }
+
+    @PostMapping("/search")
+    public ResponseEntity<ApiResponse<SemanticSearchResponse>> search(
+            @Valid @RequestBody SemanticSearchRequest request,
+            @RequestHeader("X-User-Id") String userId) {
+
+        SemanticSearchResponse response = documentService.semanticSearch(
+                request.getQuery(), UUID.fromString(userId));
+
+        return ResponseEntity.ok(ApiResponse.success("Search completed", response));
     }
 }

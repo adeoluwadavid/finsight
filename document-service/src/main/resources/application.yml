@@ -11,10 +11,15 @@ spring:
     username: adewole
     password: adewole
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-init-sql: "SET search_path TO documents, public"
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      # 'none' because Flyway owns schema management.
+      # Hibernate validate conflicts with pgvector's custom 'vector' type
+      # which Hibernate doesn't recognize natively.
+      ddl-auto: none
     properties:
       hibernate:
         default_schema: documents
@@ -51,6 +56,10 @@ finsight:
     api-key: ${GROQ_API_KEY}
     base-url: https://api.groq.com/openai/v1
     model: llama-3.3-70b-versatile
+  jina:
+    api-key: ${JINA_API_KEY}
+    base-url: https://api.jina.ai/v1
+    model: jina-embeddings-v2-base-en
 
 springdoc:
   api-docs:

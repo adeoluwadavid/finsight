@@ -3,6 +3,7 @@ package com.finsight.document.service;
 import com.finsight.document.dto.DocumentStatusResponse;
 import com.finsight.document.dto.DocumentUploadResponse;
 import com.finsight.document.dto.ExtractedInvoiceResponse;
+import com.finsight.document.dto.SemanticSearchResponse;
 import com.finsight.document.entity.Document;
 import com.finsight.document.entity.ExtractedInvoice;
 import com.finsight.document.repository.DocumentRepository;
@@ -22,6 +23,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.finsight.document.repository.DocumentEmbeddingRepository;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -30,6 +33,9 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final ExtractedInvoiceRepository extractedInvoiceRepository;
     private final DocumentProcessingService documentProcessingService;
+
+    private final DocumentEmbeddingRepository documentEmbeddingRepository;
+    private final EmbeddingService embeddingService;
 
     @Value("${finsight.upload.directory}")
     private String uploadDirectory;
@@ -140,5 +146,28 @@ public class DocumentService {
             log.error("Failed to save file: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to save uploaded file");
         }
+    }
+
+    public SemanticSearchResponse semanticSearch(String query, UUID userId) {
+        // Embed the query
+        float[] queryVector = embeddingService.embedQuery(query);
+        String vectorString = embeddingService.vectorToString(queryVector);
+
+        // Search for similar chunks
+        List<Object[]> results = documentEmbeddingRepository.findSimilarChunks(
+                vectorString, userId.toString(), 5);
+
+        List<SemanticSearchResponse.SearchResult> searchResults = results.stream()
+                .map(row -> SemanticSearchResponse.SearchResult.builder()
+                        .documentId(row[0].toString())
+                        .chunkText(row[1].toString())
+                        .similarity(Double.parseDouble(row[2].toString()))
+                        .build())
+                .collect(Collectors.toList());
+
+        return SemanticSearchResponse.builder()
+                .query(query)
+                .results(searchResults)
+                .build();
     }
 }

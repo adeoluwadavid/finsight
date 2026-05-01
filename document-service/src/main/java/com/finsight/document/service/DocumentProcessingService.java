@@ -32,6 +32,7 @@ public class DocumentProcessingService {
     private final PdfExtractorService pdfExtractorService;
     private final GroqClient groqClient;
     private final ObjectMapper objectMapper;
+    private final EmbeddingService embeddingService;
 
     @Async
     @Transactional
@@ -57,7 +58,12 @@ public class DocumentProcessingService {
             // Step 3: Parse and save extracted data
             saveExtractedInvoice(document, groqResponse);
 
-            // Step 4: Mark as completed
+            // Step 4: Generate and store embeddings
+            log.info("Starting embedding for document: {}", document.getId());
+            embeddingService.embedDocument(document, pdfText);
+            log.info("Embedding complete for document: {}", document.getId());
+
+            // Step 5: Mark as completed
             document.setStatus("COMPLETED");
             document.setProcessedAt(LocalDateTime.now());
             documentRepository.save(document);
@@ -75,7 +81,6 @@ public class DocumentProcessingService {
 
     private void saveExtractedInvoice(Document document, String groqResponse)
             throws Exception {
-        // Clean response — Groq sometimes wraps in markdown
         String cleanJson = groqResponse
                 .replaceAll("```json", "")
                 .replaceAll("```", "")
@@ -99,7 +104,6 @@ public class DocumentProcessingService {
 
         invoice = extractedInvoiceRepository.save(invoice);
 
-        // Save line items
         List<InvoiceLineItem> lineItems = new ArrayList<>();
         JsonNode lineItemsNode = json.path("lineItems");
 
