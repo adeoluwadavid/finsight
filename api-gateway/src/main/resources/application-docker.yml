@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: http://auth-service:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        - id: document-service
+          uri: http://document-service:8082
+          predicates:
+            - Path=/api/documents/**
+          filters:
+            - StripPrefix=1
+
+        - id: conversation-service
+          uri: http://conversation-service:8083
+          predicates:
+            - Path=/api/conversations/**
+          filters:
+            - StripPrefix=1

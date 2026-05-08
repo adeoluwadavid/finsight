@@ -1,7 +1,10 @@
 package com.finsight.conversation.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finsight.conversation.client.EmbeddingClient;
 import com.finsight.conversation.client.GroqClient;
+import com.finsight.conversation.dto.GroqResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,12 +24,13 @@ public class RagService {
     private final EmbeddingClient embeddingClient;
     private final GroqClient groqClient;
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
 
     @Value("${finsight.rag.max-context-chunks:5}")
     private int maxContextChunks;
 
-    public String answer(String userQuestion, String userId,
-                         List<Map<String, String>> conversationHistory) {
+    public GroqResponse answer(String userQuestion, String userId,
+                               List<Map<String, String>> conversationHistory) {
 
         log.info("RAG query for user: {}, question: {}", userId, userQuestion);
 
@@ -49,17 +53,59 @@ public class RagService {
                 userQuestion, context, conversationHistory);
 
         // Step 6: Call Groq
-        String answer = groqClient.chat(messages);
-        log.info("RAG answer generated for user: {}", userId);
+        String rawResponse = groqClient.chat(messages);
+        log.info("RAG response received for user: {}", userId);
 
-        return answer;
+        // Step 7: Parse response into text + chart spec
+        return parseResponse(rawResponse);
+    }
+
+    private GroqResponse parseResponse(String rawResponse) {
+        try {
+            // Look for JSON block in the response
+            int jsonStart = rawResponse.indexOf("```json");
+            int jsonEnd = rawResponse.lastIndexOf("```");
+
+            if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+                String textPart = rawResponse.substring(0, jsonStart).trim();
+                String jsonPart = rawResponse
+                        .substring(jsonStart + 7, jsonEnd).trim();
+
+                // Validate it's a chart spec
+                JsonNode json = objectMapper.readTree(jsonPart);
+                if (json.has("type") && json.has("labels") && json.has("datasets")) {
+                    log.info("Chart spec extracted from response");
+                    return GroqResponse.builder()
+                            .textAnswer(textPart.isEmpty() ? extractTextAnswer(rawResponse) : textPart)
+                            .chartSpec(jsonPart)
+                            .build();
+                }
+            }
+
+            // No chart spec found — plain text answer
+            return GroqResponse.builder()
+                    .textAnswer(rawResponse)
+                    .chartSpec(null)
+                    .build();
+
+        } catch (Exception e) {
+            log.warn("Could not parse chart spec from response: {}", e.getMessage());
+            return GroqResponse.builder()
+                    .textAnswer(rawResponse)
+                    .chartSpec(null)
+                    .build();
+        }
+    }
+
+    private String extractTextAnswer(String response) {
+        // Remove any JSON blocks and return clean text
+        return response.replaceAll("```json[\\s\\S]*?```", "").trim();
     }
 
     private List<Map<String, Object>> retrieveRelevantChunks(
             String vectorString, String userId) {
         try {
             String sql = """
-                    SET search_path TO documents, public;
                     SELECT de.chunk_text,
                            ei.vendor_name,
                            ei.total,
@@ -141,20 +187,44 @@ public class RagService {
         systemMessage.put("role", "system");
         systemMessage.put("content", """
                 You are FinSight AI, an intelligent financial assistant for Nigerian SMEs.
-                You help business owners understand their invoices, track spending, and
-                gain financial insights.
-                
+                You help business owners understand their invoices, track spending,
+                and gain financial insights.
+
                 Answer questions based ONLY on the provided financial data context.
                 If the data doesn't contain enough information to answer, say so clearly.
                 Always mention specific amounts, vendors, and dates when relevant.
                 Format currency as NGN amounts with commas (e.g., NGN 220,375).
                 Be concise, accurate, and helpful.
-                
+
+                CHART INSTRUCTIONS:
+                When the user asks for spending breakdowns, comparisons, trends, or
+                visualizations (e.g. "show me", "chart", "breakdown", "by category",
+                "by month", "compare"), you MUST include a chart specification.
+
+                Format your response as:
+                [Your text answer here]
+
+```json
+                {
+                  "type": "bar",
+                  "title": "Chart Title",
+                  "labels": ["Label1", "Label2"],
+                  "datasets": [{
+                    "label": "Amount (NGN)",
+                    "data": [1000, 2000]
+                  }]
+                }
+```
+
+                Chart types: "bar", "line", "pie", "doughnut"
+                Only include the chart JSON when it adds value.
+                For simple factual questions, just answer in plain text.
+
                 Financial Context:
                 """ + context);
         messages.add(systemMessage);
 
-        // Add recent conversation history (last 6 messages for context)
+        // Add recent conversation history
         int historyStart = Math.max(0, history.size() - 6);
         messages.addAll(history.subList(historyStart, history.size()));
 

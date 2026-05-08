@@ -33,12 +33,6 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-
   servlet:
     multipart:
       max-file-size: 20MB

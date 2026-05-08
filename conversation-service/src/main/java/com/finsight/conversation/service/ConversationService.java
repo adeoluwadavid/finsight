@@ -1,6 +1,7 @@
 package com.finsight.conversation.service;
 
 import com.finsight.conversation.dto.ConversationResponse;
+import com.finsight.conversation.dto.GroqResponse;
 import com.finsight.conversation.dto.MessageResponse;
 import com.finsight.conversation.entity.Conversation;
 import com.finsight.conversation.entity.Message;
@@ -70,14 +71,15 @@ public class ConversationService {
                 })
                 .collect(Collectors.toList());
 
-        // Get RAG answer
-        String answer = ragService.answer(content, userId.toString(), history);
+        // Get RAG answer with optional chart spec
+        GroqResponse groqResponse = ragService.answer(content, userId.toString(), history);
 
-        // Save assistant message
+        // Save assistant message with chart spec
         Message assistantMessage = Message.builder()
                 .conversation(conversation)
                 .role("assistant")
-                .content(answer)
+                .content(groqResponse.getTextAnswer())
+                .chartSpec(groqResponse.getChartSpec())
                 .createdAt(LocalDateTime.now())
                 .build();
         assistantMessage = messageRepository.save(assistantMessage);
@@ -86,7 +88,6 @@ public class ConversationService {
 
         return toMessageResponse(assistantMessage);
     }
-
     public List<MessageResponse> getMessages(UUID conversationId, UUID userId) {
         conversationRepository.findByIdAndUserId(conversationId, userId)
                 .orElseThrow(() -> new IllegalArgumentException(
