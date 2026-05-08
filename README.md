@@ -482,6 +482,4 @@ Each service exposes its own Swagger UI:
 ## Author
 
 **David Adewole**
-Software Engineer
-Lagos, Nigeria
 adeoluwadavid@gmail.com
